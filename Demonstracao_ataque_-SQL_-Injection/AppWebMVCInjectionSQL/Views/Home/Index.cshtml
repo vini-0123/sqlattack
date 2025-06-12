@@ -1,0 +1,426 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1>Demonstração de um ataque - SQL Injection</h1>
+
+    <h2 style="background-color:red">
+        Atenção: Lembre-se de que essas práticas pode ser é crime, estamos usando apenas para fins educacionais e nunca deve ser usado em sistemas de produção ou online.
+    </h2>
+    <p>
+        Para demonstrar um ataque de SQL Injection em sala de aula,
+        vamos criar uma aplicação simples em ASP.NET Core MVC com as entidades Aluno
+        e Professor. Essa aplicação terá métodos vulneráveis que permitem ataques de
+        SQL Injection, servindo como exemplo didático.
+        <br />
+        <br />
+        Neste exemplo os métodos "Get, Post, Put e Delete" esta vulnerável porque concatena
+        diretamente o parâmetro "nome ou o  id" na consulta SQL.
+        Um usuario mal-intencionado poderia inserir um valor como  ( '; DROP TABLE Alunos;-- ) para deletar a tabela.
+
+    </p>
+
+
+    <h2> Explicação das Vulnerabilidades</h2>
+    <p>
+        Concatenando diretamente valores em consultas SQL: Ao concatenar valores diretamente em consultas, qualquer valor enviado pelo usuário é interpretado diretamente pelo SQL, o que abre a porta para manipulações e ataques.
+        Métodos vulneráveis: Todas as operações (GET, POST, PUT, DELETE) estão sujeitas a ataques se um usuário mal-intencionado manipular os parâmetros (por exemplo, IDs ou outros valores de entrada).
+
+    </p>
+
+
+    <h2>Conclusão</h2>
+    <p>
+        Este exemplo ilustram como falhas de SQL Injection podem ser exploradas em todos os métodos CRUD.
+        <br />Após demonstrar as vulnerabilidades, recomendo fortemente ensinar a versão segura usando consultas parametrizadas com FromSqlRaw ou LINQ para evitar esses riscos.
+    </p>
+
+    <br />
+
+    <hr />
+
+    <br />
+
+    <h2>
+        Exemplos mais complexos de possíveis falhas de injeção e vulnerabilidades em frameworks
+        populares como Entity Framework (EF), Dapper e Express (Node.js)
+    </h2>
+    <p>
+        Essas vulnerabilidades geralmente ocorrem quando os desenvolvedores não seguem práticas recomendadas de
+        segurança, e é importante entender como elas se manifestam para evitar ataques sofisticados.
+
+    </p>
+
+
+
+
+    <h3> Falhas no Entity Framework (EF) </h3>
+    <p>
+
+        Mesmo usando um ORM como o Entity Framework, ainda é possível ter vulnerabilidades se o código não for bem
+        estruturado. Veja exemplos:
+
+        <br />
+        <br />
+        <br />
+        a. Falha ao Usar Consultas SQL Dinâmicas
+        Quando se usa FromSqlRaw com strings concatenadas diretamente, há risco de SQL Injection:<br />
+
+        public IActionResult Search(string nome)
+        {
+        var query = $"SELECT * FROM Alunos WHERE Nome = '{nome}'";
+        var alunos = _context.Alunos.FromSqlRaw(query).ToList();
+        return View(alunos);
+        }
+
+        Vulnerabilidade:<br />
+        Se o usuário digitar nome = ' OR 1=1; --, a consulta retornará todos os registros.
+
+        <br />
+        <br />
+        Mitigação:<br />
+        Use consultas parametrizadas com FromSqlInterpolated:<br />
+        var alunos = _context.Alunos.FromSqlInterpolated($"SELECT * FROM Alunos WHERE Nome = {nome}").ToList();
+
+        <br />
+        <br />
+        <br />
+        b. Injeção em LINQ Dinâmico
+        Se o desenvolvedor usa LINQ dinâmico incorretamente, a aplicação pode ser vulnerável:<br />
+
+        public IActionResult Filter(string field, string value)
+        {
+        var query = _context.Alunos.Where($"{field} = \"{value}\"").ToList();
+        return View(query);
+        }
+
+        Vulnerabilidade:<br />
+        Um invasor pode passar valores como field = "1=1" para manipular a lógica e retornar todos os
+        registros ou dados não autorizados.
+
+        <br />
+        <br />
+        Mitigação:
+        Evitar construir consultas dinâmicas baseadas em strings; prefira expressões seguras:<br />
+        var alunos = _context.Alunos.Where(a => a.Nome == value).ToList();
+    </p>
+
+
+
+
+    <h3> Falhas no Dapper </h3>
+    <p>
+
+        Dapper é um micro ORM que é muito mais próximo do SQL nativo, o que o torna vulnerável se as entradas não forem devidamente parametrizadas. Exemplos comuns incluem:
+
+        <br />
+        <br />
+        <br />
+        a. Consultas Não Parametrizadas<br />
+        public Aluno GetAlunoById(int id)
+        {
+        var query = $"SELECT * FROM Alunos WHERE Id = {id}";
+        return _connection.QueryFirstOrDefault<Aluno>
+            (query);
+            }
+
+            <br />
+            <br />
+            Vulnerabilidade:<br />
+
+            Se id for 1; DROP TABLE Professores; --, a consulta executará ambos os comandos.
+
+            <br />
+            <br />
+            Mitigação:<br />
+
+            Use parâmetros seguros:<br />
+            var query = "SELECT * FROM Alunos WHERE Id = "escrava o caractere arroba --" Id";
+            return _connection.QueryFirstOrDefault<Aluno>
+                (query, new { Id = id });
+
+                <br />
+                <br />
+                <br />
+                b. Comandos Complexos com Injeção
+                Se a aplicação usar inputs do usuário em comandos mais complexos, como inserções ou atualizações múltiplas:<br />
+
+                public void UpdateAluno(string nome, string email, int id)
+                {
+                var query = $"UPDATE Alunos SET Nome = '{nome}', Email = '{email}' WHERE Id = {id}";
+                _connection.Execute(query);
+                }
+
+                <br />
+                <br />
+                Vulnerabilidade:<br />
+
+                Um invasor pode usar valores como nome = "John'; DELETE FROM Alunos; --" para executar comandos indesejados.
+
+
+                <br />
+                <br />
+                Mitigação:
+                Sempre parametrizar as consultas:<br />
+                var query = "UPDATE Alunos SET Nome = "escrava o caractere arroba --" Nome, Email = "escrava o caractere arroba --"Email WHERE Id = "escrava o caractere arroba --"Id";<br />
+                _connection.Execute(query, new { Nome = nome, Email = email, Id = id });
+    </p>
+
+
+
+    <h3> Falhas no Express (Node.js) </h3>
+    <p>
+
+        Express, sendo uma framework minimalista para Node.js, depende muito de como o
+        desenvolvedor manipula as entradas do usuário. Exemplos de falhas incluem:
+        <br />
+        <br />
+        <br />
+
+        a. Falha ao Construir Consultas SQL com Entradas Não Escapadas<br />
+
+        app.get('/users', (req, res) => {
+        const name = req.query.name;
+        const query = `SELECT * FROM users WHERE name = '${name}'`;
+        db.query(query, (err, result) => {
+        if (err) throw err;
+        res.json(result);
+        });
+        });
+
+        <br />
+        <br />
+        Vulnerabilidade:<br />
+        Um usuário pode enviar name=' OR '1'='1' -- para retornar todos os registros.
+
+        <br />
+        <br />
+        Mitigação:<br />
+
+        Usar o módulo mysql com placeholders para parametrizar consultas:<br />
+
+        const query = 'SELECT * FROM users WHERE name = ?';
+        db.query(query, [name], (err, result) => {
+        if (err) throw err;
+        res.json(result);
+        });
+
+
+        <br />
+        <br />
+        <br />
+        b. Manipulação Inadequada de Inputs em Comandos de Atualização <br />
+        app.put('/user/:id', (req, res) => {
+        const { name, email } = req.body;
+        const query = `UPDATE users SET name = '${name}', email = '${email}' WHERE id = ${req.params.id}`;
+        db.query(query, (err, result) => {
+        if (err) throw err;
+        res.json(result);
+        });
+        });
+
+
+        <br />
+        <br />
+        Vulnerabilidade:<br />
+        Um invasor pode manipular name ou email para injetar SQL malicioso.
+
+        <br />
+        <br />
+        Mitigação:<br />
+        Parâmetros seguros:<br />
+        const query = 'UPDATE users SET name = ?, email = ? WHERE id = ?';
+        db.query(query, [name, email, req.params.id], (err, result) => {
+        if (err) throw err;
+        res.json(result);
+        });
+
+    </p>
+
+
+
+
+
+
+    <h3> Falhas Avançadas de Injeção </h3>
+    <p>
+
+        a. Injeção de SQL no Contexto de Procedimentos Armazenados   <br />
+        Mesmo quando a aplicação usa procedimentos armazenados, ainda é possível ter falhas se os
+        parâmetros não forem tratados adequadamente. Por exemplo: <br />
+
+        CREATE PROCEDURE GetAluno
+        "escrava o caractere arroba --" nome NVARCHAR(50)
+        AS
+        BEGIN
+        DECLARE "escrava o caractere arroba --" query NVARCHAR(200);
+        SET "escrava o caractere arroba --" query = 'SELECT * FROM Alunos WHERE Nome = ''' + "escrava o caractere arroba --" nome + '''';
+        EXEC sp_executesql "escrava o caractere arroba --" query;
+        END;
+
+        <br />
+        <br />
+        Vulnerabilidade:<br />
+
+        Um atacante pode manipular "escrava o caractere arroba --"nome para incluir código malicioso.
+
+        <br />
+        <br />
+        Mitigação:<br />
+
+        Sempre usar parâmetros corretamente com sp_executesql:<br />
+
+        EXEC sp_executesql "escrava o caractere arroba --"query, N'"escrava o caractere arroba --"nome NVARCHAR(50)', "escrava o caractere arroba --"nome = "escrava o caractere arroba --"nome;
+        
+        
+        <br />
+        <br />
+        b. Injeção Baseada em Union (SQL Union Attack)<br />
+        Em sistemas que permitem consultas customizadas com várias colunas, um invasor 
+        pode usar UNION para combinar resultados com outras tabelas:<br />
+
+        ?id=1 UNION SELECT username, password FROM admin_users;--
+
+        <br />
+        <br />
+        Impacto:<br />
+        O invasor pode acessar informações sensíveis de outras tabelas.
+
+        <br />
+        <br />
+        Mitigação:<br />
+        Limitar as permissões de leitura e validar rigorosamente os inputs para evitar a combinação de resultados.
+
+        <br />
+        <br />
+        Conclusão
+        Esses exemplos avançados mostram que, mesmo usando frameworks como EF, Dapper e Express, 
+        a segurança depende de práticas corretas de codificação:
+
+        Parâmetros sempre parametrizados: Em todos os casos, nunca concatenar diretamente os valores recebidos do usuário.
+        Validação e sanitização de entradas: Garantir que todos os inputs sejam validados e/ou escapados.
+        Privilégios mínimos: No banco de dados, garantir que os usuários da aplicação tenham os menores privilégios possíveis.
+        Uso de ferramentas de ORM e segurança: Utilizar as melhores práticas dos frameworks para evitar SQL Injection.
+
+        <br />
+        <br />
+    </p>
+
+    <br />
+    <hr />
+    <br />
+
+
+    <h2> Excluir um banco de dados via SQL Injection </h2>
+    <p>
+
+        Para excluir um banco de dados via SQL Injection, o atacante precisaria
+        explorar uma vulnerabilidade em uma aplicação que aceita e executa comandos
+        SQL diretamente sem validação ou parametrização adequada. O comando SQL malicioso 
+        para deletar um banco de dados pode variar conforme o sistema, mas aqui está um 
+        exemplo típico e como ele poderia ser usado em um ataque:<br />
+
+        <br />
+        <br />
+        Exemplo de Comando para Deletar um Banco de Dados<br />
+
+        DROP DATABASE NomeDoBanco;
+
+        <br />
+        <br />
+        Como o Ataque Ocorre:<br />
+        Se um endpoint ou função na aplicação está vulnerável a injeção SQL, um 
+        invasor pode manipular a entrada para executar o comando acima. Por exemplo:
+
+        <br />
+        <br />
+        Vulnerabilidade Simples em um Endpoint GET:<br />
+        Imagine um código vulnerável que recebe um parâmetro e executa uma consulta SQL direta:<br />
+
+        public IActionResult GetData(string tableName)
+        {
+        var query = $"SELECT * FROM {tableName}";
+        var result = _context.Database.ExecuteSqlRaw(query);
+        return View(result);
+        }
+
+        <br />
+        <br />
+        Se o parâmetro tableName não for validado, um atacante pode passar algo como:<br />
+
+        http://seusite.com/GetData?tableName=Alunos; DROP DATABASE NomeDoBanco; --
+
+        <br />
+        <br />
+        Resultado: Esse comando concatenado faria com que a aplicação executasse o SELECT e, em 
+        seguida, o comando DROP DATABASE, excluindo o banco de dados.
+
+        <br />
+        <br />
+        Vulnerabilidade em um Endpoint POST com Dapper:<br />
+        Se a aplicação usa Dapper e constrói
+
+        <br />
+        <br />
+        consultas diretamente a partir das entradas do usuário:<br />
+
+        public void UpdateAluno(string nome, int id)
+        {
+        var query = $"UPDATE Alunos SET Nome = '{nome}' WHERE Id = {id}";
+        _connection.Execute(query);
+        }
+        <br />
+        <br />
+
+        Um invasor poderia enviar um valor como nome = "John'; DROP DATABASE NomeDoBanco; --" para manipular a consulta e deletar o banco.<br />
+
+        <br />
+        <br />
+        Comando Completo de Injeção<br />
+        '; DROP DATABASE NomeDoBanco; --
+
+        <br />
+        <br />
+        Mitigação
+        Para prevenir esse tipo de ataque:<br />
+
+        <br />
+        <br />
+        Use Parâmetros em Todas as Consultas:
+        Nunca construa consultas com entradas diretamente concatenadas. Sempre use 
+        parâmetros para evitar a execução de comandos não autorizados.
+
+        <br />
+        <br />
+        Validação e Sanitização Rigorosa:
+        Verifique e limite as entradas dos usuários para garantir que apenas 
+        valores esperados e seguros sejam processados.
+
+        <br />
+        <br />
+        Privilégios Mínimos no Banco de Dados:
+        O usuário do banco de dados utilizado pela aplicação deve ter apenas os privilégios 
+        necessários, evitando permissões de exclusão ou criação de bancos de dados inteiros.
+        Essas práticas são fundamentais para garantir a segurança contra ataques de injeção 
+        SQL que possam comprometer o banco de dados. 
+
+      
+    </p>
+
+
+
+
+
+
+
+
+    <h2 style="background-color:red">
+        Atenção mais uma vez, este exemplo de aplicação serve como exemplo didático para
+        demonstrar SQL Injection e ensinar a importância de usar consultas parametrizadas.
+    </h2>
+
+
+
+
+</div>
